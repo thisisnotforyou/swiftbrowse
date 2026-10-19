@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <title>SwiftBrowse</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar" id="sidebar">
+  <button class="brand" id="brand" title="SwiftBrowse home"><span class="brand-mark">S</span><span class="sidebar-label">SwiftBrowse</span></button>
+  <button class="workspace-current" id="workspace-current" title="Switch workspace"><span id="workspace-icon">◉</span><span id="workspace-name" class="sidebar-label">Personal</span><span class="workspace-chevron">⌄</span></button>
+  <div class="side-rule"></div>
+  <button class="side-action" id="side-new-tab" title="New tab"><span class="side-icon">＋</span><span class="sidebar-label">New tab</span></button>
+  <button class="side-action" id="side-private" title="New private tab"><span class="side-icon">◐</span><span class="sidebar-label">Private tab</span></button>
+  <div class="side-rule"></div>
+  <button class="side-action" data-panel="workspaces" title="Workspaces"><span class="side-icon">▦</span><span class="sidebar-label">Workspaces</span></button>
+  <button class="side-action" data-panel="bookmarks" title="Bookmarks"><span class="side-icon">☆</span><span class="sidebar-label">Bookmarks</span></button>
+  <button class="side-action" data-panel="history" title="History"><span class="side-icon">◷</span><span class="sidebar-label">History</span></button>
+  <button class="side-action" data-panel="downloads" title="Downloads"><span class="side-icon">↓</span><span class="sidebar-label">Downloads</span></button>
+  <div class="sidebar-spacer"></div>
+  <button class="side-action" data-panel="privacy" title="Privacy center"><span class="side-icon privacy-icon">◈</span><span class="sidebar-label">Privacy center</span><span class="sidebar-count" id="sidebar-blocked">0</span></button>
+  <button class="side-action" data-panel="appearance" title="Appearance"><span class="side-icon">✳</span><span class="sidebar-label">Appearance</span></button>
+  <button class="side-action" id="expand-sidebar" title="Expand sidebar"><span class="side-icon" id="expand-glyph">»</span><span class="sidebar-label">Expand sidebar</span></button>
+</aside>
+<section id="side-panel" class="side-panel hidden" aria-label="Browser tools">
+  <div class="side-panel-head"><div><div class="eyebrow">SWIFTBROWSE</div><h2 id="panel-title">History</h2></div><button id="close-panel" class="close-panel" title="Close panel" aria-label="Close panel">×</button></div>
+  <div id="side-panel-body" class="side-panel-body"></div>
+</section>
+<main class="main-column" id="main-column">
+  <header class="chrome">
+    <div class="tabstrip"><div id="tabs" class="tabs"></div><button class="newtab" id="new-tab" aria-label="New tab" title="New tab">+</button><div class="window-space"></div><span id="workspace-chip" class="workspace-chip">PERSONAL</span><span id="private-chip" class="private-chip hidden">PRIVATE</span></div>
+    <div class="toolbar"><div class="nav"><button id="back" title="Back" aria-label="Back">‹</button><button id="forward" title="Forward" aria-label="Forward">›</button><button id="reload" title="Reload" aria-label="Reload">↻</button><button id="home" title="Home" aria-label="New tab page">⌂</button></div><form id="address-form" class="address-wrap"><span id="security" title="Connection status">◈</span><input id="address" autocomplete="off" spellcheck="false" placeholder="Search or enter address"><button id="bookmark" type="button" title="Bookmark this page" aria-label="Bookmark">☆</button></form><button id="split-view" class="toolbtn" title="Open split view" aria-label="Open split view">◫</button><button class="shield" id="shield" title="Ad and tracker blocking" aria-label="Privacy center"><span>◈</span><b id="blocked-count">0</b></button><button id="menu" class="menubtn" aria-label="Browser menu" title="Browser menu">⋯</button></div>
+    <div id="bookmarks-bar" class="bookmarks"></div><div id="progress" class="progress"><i></i></div>
+  </header>
+</main>
+<div id="menu-panel" class="menu-panel hidden"><div class="menu-title">SwiftBrowse</div><button id="menu-new-private" class="menu-row"><span>New private tab</span><span>⌘⇧N</span></button><button id="clear-data" class="menu-row"><span>Clear browsing data</span><span>›</span></button><div class="menu-divider"></div><button id="devtools" class="menu-row"><span>Developer tools</span><span>⌥⌘I</span></button><div class="menu-foot">Your history and settings stay on this device.</div></div>
+<div id="toast" class="toast hidden" role="status"></div>
+<script src="renderer.js"></script>
+</body>
+</html>

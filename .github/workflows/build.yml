@@ -1,0 +1,62 @@
+name: Build installers
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            command: dist:mac
+            artifact: macOS
+          - os: windows-latest
+            command: dist:windows
+            artifact: Windows
+          - os: ubuntu-latest
+            command: dist:linux
+            artifact: Linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm ${{ matrix.command }}
+        env:
+          CSC_LINK: ${{ matrix.artifact == 'macOS' && secrets.MAC_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.artifact == 'macOS' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ matrix.artifact == 'macOS' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.artifact == 'macOS' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ matrix.artifact == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SwiftBrowse-${{ matrix.artifact }}
+          path: outputs/installers/*
+          if-no-files-found: error
+
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: SwiftBrowse-*
+          path: release-assets
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: SwiftBrowse ${{ github.ref_name }}
+          generate_release_notes: true
+          files: release-assets/**
