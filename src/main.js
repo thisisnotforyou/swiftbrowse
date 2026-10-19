@@ -33,6 +33,7 @@ let sidePanel = null;
 let blockedCount = 0;
 let blockEnabled = true;
 let blockAvailable = false;
+let blockError = '';
 let bookmarks = [];
 let historyEntries = [];
 let downloads = [];
@@ -79,7 +80,7 @@ function tabState(t) {
 }
 function stateSnapshot() {
   return {
-    tabs: visibleTabs().map(tabState), activeId, blockedCount, blockEnabled, blockAvailable,
+    tabs: visibleTabs().map(tabState), activeId, blockedCount, blockEnabled, blockAvailable, blockError,
     bookmarks, history: historyEntries.slice(0, 50), downloads: downloads.slice(0, 30),
     workspaces, currentWorkspaceId, sidebarExpanded, sidePanel, secondaryId
   };
@@ -221,7 +222,7 @@ async function loadFilters() {
       blocker.on('request-blocked', () => { blockedCount++; emit('browser:blocked', blockedCount); });
       for (const ses of allSessions()) attachBlocker(ses);
       blockAvailable = true;
-      if (cacheAge <= 7 * 86400000) return;
+      if (cacheAge <= 7 * 86400000) { blockError = ''; return; }
     } catch { blocker = undefined; }
     const updated = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch);
     if (blocker) for (const ses of allSessions()) blocker.disableBlockingInSession(ses);
@@ -229,10 +230,12 @@ async function loadFilters() {
     blocker.on('request-blocked', () => { blockedCount++; emit('browser:blocked', blockedCount); });
     for (const ses of allSessions()) attachBlocker(ses);
     blockAvailable = true;
+    blockError = '';
     await fsp.mkdir(path.dirname(cachePath), { recursive: true });
     await fsp.writeFile(cachePath, blocker.serialize());
   } catch (error) {
     console.warn('Ad and tracker filter lists could not be loaded.', error.message);
+    blockError = error.message || 'Could not download filter lists.';
     if (!blocker) { blockAvailable = false; blockEnabled = false; }
   }
 }
@@ -310,11 +313,16 @@ ipcMain.on('browser:delete-workspace', async (_e, id) => {
   if (!visibleTabs().some(t => t.id === activeId)) activeId = visibleTabs()[0]?.id || null;
   layoutViews();
 });
-ipcMain.on('browser:toggle-blocking', (_e, value) => {
+ipcMain.on('browser:toggle-blocking', async (_e, value) => {
+  if (!blockAvailable && value) {
+    await loadFilters();
+  }
   blockEnabled = !!value && blockAvailable;
   for (const ses of allSessions()) {
     if (!blocker) continue;
-    if (blockEnabled) blocker.enableBlockingInSession(ses); else blocker.disableBlockingInSession(ses);
+    const isEnabled = blocker.isBlockingEnabled(ses);
+    if (blockEnabled && !isEnabled) blocker.enableBlockingInSession(ses);
+    else if (!blockEnabled && isEnabled) blocker.disableBlockingInSession(ses);
   }
   sendState();
 });
