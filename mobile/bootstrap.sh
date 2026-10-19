@@ -12,6 +12,7 @@ cd "$ROOT"
 flutter create --no-pub --overwrite --org app.swiftbrowse --project-name swiftbrowse_mobile --platforms=android,ios .
 
 cp "$TMP/pubspec.yaml" "$ROOT/pubspec.yaml"
+rm -rf "$ROOT/test"
 rm -rf "$ROOT/lib"
 cp -R "$TMP/lib" "$ROOT/lib"
 
