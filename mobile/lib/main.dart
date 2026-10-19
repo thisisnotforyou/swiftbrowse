@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:adblocker_webview/adblocker_webview.dart';
+import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await FileDownloader().start(autoCleanDatabase: true);
   runApp(const SwiftBrowseMobileApp());
 }
 
@@ -61,6 +65,23 @@ class BrowserTab {
   String? error;
 }
 
+class BrowserDownload {
+  BrowserDownload(this.task, this.url);
+
+  final DownloadTask task;
+  final String url;
+  double progress = 0;
+  TaskStatus status = TaskStatus.enqueued;
+  String? savedPath;
+  String? error;
+
+  String get name {
+    final path = savedPath ?? task.filename;
+    if (path.isEmpty || path == '?') return Uri.tryParse(url)?.host ?? url;
+    return path.split(Platform.pathSeparator).last;
+  }
+}
+
 class BrowserScreen extends StatefulWidget {
   const BrowserScreen({super.key});
 
@@ -71,6 +92,8 @@ class BrowserScreen extends StatefulWidget {
 class _BrowserScreenState extends State<BrowserScreen> {
   final _address = TextEditingController();
   final _tabs = <BrowserTab>[];
+  final _downloads = <BrowserDownload>[];
+  final _downloadsNotifier = ValueNotifier<List<BrowserDownload>>([]);
   int _activeIndex = 0;
   int _nextTabId = 1;
 
@@ -86,6 +109,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
   @override
   void dispose() {
     _address.dispose();
+    _downloadsNotifier.dispose();
     for (final tab in _tabs) {
       unawaited(_disposeTab(tab));
     }
@@ -258,6 +282,145 @@ class _BrowserScreenState extends State<BrowserScreen> {
     );
   }
 
+  bool _isDownloadUrl(String raw) {
+    final uri = Uri.tryParse(raw);
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) return false;
+    final path = uri.path.toLowerCase();
+    const extensions = {
+      '.apk', '.bin', '.csv', '.doc', '.docx', '.dmg', '.epub', '.exe',
+      '.gif', '.gz', '.jpeg', '.jpg', '.json', '.m4a', '.mkv', '.mov',
+      '.mp3', '.mp4', '.msi', '.pdf', '.png', '.ppt', '.pptx', '.rar',
+      '.tar', '.txt', '.webm', '.xls', '.xlsx', '.zip',
+    };
+    return extensions.any(path.endsWith) ||
+        uri.queryParameters.containsKey('download');
+  }
+
+  Future<void> _startDownload(String raw) async {
+    final uri = Uri.tryParse(raw);
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) return;
+    Map<String, String> headers = const {};
+    try {
+      final cookies = await WebViewCookieManager().getCookies(domain: uri);
+      if (cookies.isNotEmpty) {
+        headers = {
+          'Cookie': cookies.map((cookie) => '${cookie.name}=${cookie.value}').join('; '),
+        };
+      }
+    } catch (_) {
+      // Public downloads still work when the platform does not expose cookies.
+    }
+    if (!mounted) return;
+    final task = DownloadTask(
+      url: uri.toString(),
+      filename: '?',
+      directory: 'Downloads',
+      baseDirectory: BaseDirectory.applicationDocuments,
+      allowPause: true,
+      headers: headers,
+    );
+    final entry = BrowserDownload(task, uri.toString());
+    setState(() => _downloads.insert(0, entry));
+    _publishDownloads();
+    try {
+      final result = await FileDownloader().download(
+        task,
+        onStatus: (status) {
+          entry.status = status;
+          _publishDownloads();
+        },
+        onProgress: (progress) {
+          entry.progress = progress;
+          _publishDownloads();
+        },
+      );
+      entry.status = result.status;
+      if (result.status == TaskStatus.complete) {
+        final sharedPath = await FileDownloader().moveToSharedStorage(
+          task,
+          SharedStorage.downloads,
+        );
+        entry.savedPath = sharedPath ?? await task.filePath();
+      } else {
+        entry.error = result.exception?.description ?? result.status.name;
+      }
+    } catch (error) {
+      entry.status = TaskStatus.failed;
+      entry.error = error.toString();
+    }
+    _publishDownloads();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(entry.status == TaskStatus.complete
+              ? 'Downloaded ${entry.name}'
+              : 'Download failed: ${entry.error}'),
+        ),
+      );
+    }
+  }
+
+  void _publishDownloads() {
+    if (!mounted) return;
+    _downloadsNotifier.value = List.unmodifiable(_downloads);
+  }
+
+  Future<void> _openDownload(BrowserDownload download) async {
+    if (download.status != TaskStatus.complete) return;
+    final opened = await FileDownloader().openFile(
+      filePath: download.savedPath ?? await download.task.filePath(),
+    );
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No app found to open this file.')),
+      );
+    }
+  }
+
+  Future<void> _showDownloads() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.65,
+          child: Column(
+            children: [
+              const ListTile(title: Text('Downloads')),
+              Expanded(
+                child: ValueListenableBuilder<List<BrowserDownload>>(
+                  valueListenable: _downloadsNotifier,
+                  builder: (context, downloads, _) {
+                    if (downloads.isEmpty) {
+                      return const Center(child: Text('Downloads will appear here.'));
+                    }
+                    return ListView.builder(
+                      itemCount: downloads.length,
+                      itemBuilder: (context, index) {
+                        final download = downloads[index];
+                        final complete = download.status == TaskStatus.complete;
+                        final running = !download.status.isFinalState;
+                        return ListTile(
+                          leading: Icon(complete ? Icons.check_circle_outline : Icons.download_outlined),
+                          title: Text(download.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          subtitle: running
+                              ? LinearProgressIndicator(value: download.progress > 0 ? download.progress : null)
+                              : Text(download.error ?? download.status.name),
+                          onTap: complete ? () => _openDownload(download) : null,
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showProtectionInfo() {
     final count = _active?.controller.statistics.blockedResourceCount ?? 0;
     showDialog<void>(
@@ -350,6 +513,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
                           url: tab.url.isEmpty ? null : Uri.parse(tab.url),
                           initialHtmlData: tab.url.isEmpty ? _homeHtml : null,
                           shouldBlockAds: true,
+                          shouldDownloadUrl: _isDownloadUrl,
+                          onDownloadStart: _startDownload,
                           adBlockerWebviewController: tab.controller,
                           onLoadStart: (url) {
                             setState(() {
@@ -409,6 +574,15 @@ class _BrowserScreenState extends State<BrowserScreen> {
                     tooltip: 'Tabs',
                     onPressed: _showTabs,
                     icon: Badge(label: Text('${_tabs.length}'), child: const Icon(Icons.tab_outlined)),
+                  ),
+                  IconButton(
+                    tooltip: 'Downloads',
+                    onPressed: _showDownloads,
+                    icon: Badge(
+                      isLabelVisible: _downloads.isNotEmpty,
+                      label: Text('${_downloads.length}'),
+                      child: const Icon(Icons.download_outlined),
+                    ),
                   ),
                 ],
               ),

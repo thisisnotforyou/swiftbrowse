@@ -1,0 +1,19 @@
+name: adblocker_webview
+description: SwiftBrowse local extension of adblocker_webview with downloadable navigation callbacks.
+version: 2.3.0+swiftbrowse.1
+publish_to: none
+
+environment:
+  sdk: ^3.10.1
+
+dependencies:
+  adblocker_manager: ^1.1.0
+  flutter:
+    sdk: flutter
+  webview_flutter: ^4.13.0
+  webview_flutter_android: ^4.10.1
+  webview_flutter_wkwebview: ^3.23.0
+
+platforms:
+  android:
+  ios:

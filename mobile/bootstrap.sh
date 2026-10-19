@@ -7,6 +7,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 cp "$ROOT/pubspec.yaml" "$TMP/pubspec.yaml"
 cp -R "$ROOT/lib" "$TMP/lib"
+cp -R "$ROOT/packages" "$TMP/packages"
 
 cd "$ROOT"
 flutter create --no-pub --overwrite --org app.swiftbrowse --project-name swiftbrowse_mobile --platforms=android,ios .
@@ -15,7 +16,9 @@ FLUTTER_SDK="${FLUTTER_ROOT:-$(cd "$(dirname "$(command -v flutter)")/.." && pwd
 cp "$TMP/pubspec.yaml" "$ROOT/pubspec.yaml"
 rm -rf "$ROOT/test"
 rm -rf "$ROOT/lib"
+rm -rf "$ROOT/packages"
 cp -R "$TMP/lib" "$ROOT/lib"
+cp -R "$TMP/packages" "$ROOT/packages"
 
 python3 - "$FLUTTER_SDK/packages/flutter_tools/gradle/settings.gradle.kts" <<'PY'
 from pathlib import Path
@@ -32,6 +35,20 @@ elif "mavenCentral()" not in source.split("pluginManagement {", 1)[1].split("}",
         1,
     )
 settings.write_text(source)
+PY
+
+python3 - "$ROOT/ios/Runner/Info.plist" <<'PY'
+import plistlib
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+with path.open("rb") as source:
+    info = plistlib.load(source)
+info["UIFileSharingEnabled"] = True
+info["LSSupportsOpeningDocumentsInPlace"] = True
+with path.open("wb") as target:
+    plistlib.dump(info, target, fmt=plistlib.FMT_XML, sort_keys=False)
 PY
 
 echo "Generated Android and iOS projects. Run 'flutter pub get' before building."
