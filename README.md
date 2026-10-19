@@ -16,6 +16,17 @@ SwiftBrowse is an early cross-platform Chromium browser prototype built with Ele
 
 This is still a prototype. It does not yet have browser extensions, a password manager, cross-device sync, AI tools, a reputation-based safe-browsing service, a built-in VPN, or automatic app updates. Ad and tracker filtering depends on the selected filter lists and can vary by site.
 
+## Platform support
+
+| Platform | App | Status |
+| --- | --- | --- |
+| macOS | Electron + Chromium | Desktop prototype; universal DMG/ZIP build |
+| Windows | Electron + Chromium | Desktop prototype; NSIS installer build |
+| Android | Flutter + Android System WebView | Mobile prototype; debug APK build in GitHub Actions |
+| iOS | Flutter + WKWebView | Mobile prototype; simulator build in GitHub Actions |
+
+The iOS app uses Apple's WebKit engine for general distribution. Alternative engines such as Chromium require Apple's browser-engine entitlement, which is limited to qualifying EU distribution and carries additional security and compatibility requirements. The mobile app is an early port and does not yet match desktop features. Its community filter package bundles lists, so list freshness depends on package updates. See [mobile/README.md](mobile/README.md).
+
 ## Run from source
 
 Requires Node.js 22 or newer and pnpm 10 or newer.
@@ -35,6 +46,8 @@ pnpm dist:windows  # Windows NSIS installer
 pnpm dist:linux    # Linux AppImage and .deb
 ```
 
+For Android and iOS prototype builds, follow [mobile/README.md](mobile/README.md). GitHub Actions creates a debug Android APK and an iOS Simulator app when mobile files change; these are development builds, not store releases.
+
 Installers are written to `outputs/installers/`. Pushing a version tag such as `v0.4.0` to the public GitHub repository builds Mac, Windows, and Linux packages, then publishes them as downloadable assets on a GitHub Release.
 
 ## Public release setup
@@ -49,7 +62,7 @@ The Mac release is configured for Developer ID signing and Apple notarization. A
 
 Apple Developer Program membership and a Developer ID Application certificate are required. Without these secrets, the Mac release build will not be trusted by Gatekeeper. Windows currently builds without Authenticode signing, so SmartScreen may warn. Linux packages are unsigned.
 
-The repository must be public for anyone to access the source and GitHub Releases. Do not put certificates or passwords in the repository; add them only as GitHub Actions secrets.
+The repository must be public for anyone to access the source and GitHub Releases. Android Play distribution also needs a release signing key, and physical iOS distribution needs Apple signing and provisioning. Do not put certificates or passwords in the repository; add them only as GitHub Actions secrets.
 
 ## Privacy details
 

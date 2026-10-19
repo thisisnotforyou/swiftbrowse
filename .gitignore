@@ -2,4 +2,11 @@ node_modules/
 outputs/
 work/
 dist/
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/build/
+mobile/android/
+mobile/ios/
 .DS_Store

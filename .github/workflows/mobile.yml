@@ -1,0 +1,71 @@
+name: Mobile prototype builds
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile.yml'
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate native projects
+        working-directory: mobile
+        run: ./bootstrap.sh
+      - name: Resolve packages
+        working-directory: mobile
+        run: flutter pub get
+      - name: Analyze Dart source
+        working-directory: mobile
+        run: flutter analyze
+      - name: Build Android prototype APK
+        working-directory: mobile
+        run: flutter build apk --debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SwiftBrowse-Android-prototype
+          path: mobile/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+
+  ios-simulator:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate native projects
+        working-directory: mobile
+        run: ./bootstrap.sh
+      - name: Resolve packages
+        working-directory: mobile
+        run: flutter pub get
+      - name: Analyze Dart source
+        working-directory: mobile
+        run: flutter analyze
+      - name: Build iOS simulator prototype
+        working-directory: mobile
+        run: flutter build ios --simulator --no-codesign
+      - name: Package simulator app
+        run: ditto -c -k --sequesterRsrc --keepParent mobile/build/ios/iphonesimulator/Runner.app SwiftBrowse-iOS-Simulator.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SwiftBrowse-iOS-simulator-prototype
+          path: SwiftBrowse-iOS-Simulator.zip
+          if-no-files-found: error
